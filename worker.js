@@ -3,7 +3,7 @@ const WEBHOOK = '/endpoint';
 const SECRET = ENV_BOT_SECRET; // A-Z, a-z, 0-9, _ and -
 const ADMIN_UID = ENV_ADMIN_UID; // your user id, get it from https://t.me/username_to_id_bot
 
-const NOTIFY_INTERVAL = 3600 * 1000;
+const NOTIFY_INTERVAL = 7 * 24 * 3600 * 1000;
 const fraudDb = 'https://raw.githubusercontent.com/LloydAsp/nfd/main/data/fraud.db';
 const notificationUrl = 'https://raw.githubusercontent.com/LloydAsp/nfd/main/data/notification.txt';
 const startMsgUrl = 'https://raw.githubusercontent.com/lxb-blog/nfd/refs/heads/main/data/startMessage.md';
@@ -103,7 +103,7 @@ async function onMessage(message) {
       inline_keyboard: [
         [
           { text: '李小白博客', url: 'https://blog.lxb.icu' },  // 链接到李小白博客
-          { text: '点击联系我', callback_data: 'startCommand' }   // 使用 callback_data 触发 /start
+         // { text: '点击联系我', callback_data: 'startCommand' }   // 使用 callback_data 触发 /start
         ]
       ]
     };
@@ -118,12 +118,31 @@ async function onMessage(message) {
   
   // 处理管理员指令
   if (message.chat.id.toString() === ADMIN_UID) {
-    if (!message?.reply_to_message?.chat) {
+    // 如果管理员发送的是帮助指令（包括 /block, /unblock, /checkblock, /help）
+    if (/^(\/help)$/.test(message.text)) {
       return sendMessage({
         chat_id: ADMIN_UID,
-        text: '使用方法，回复转发的消息，并发送回复消息，或者`/block`、`/unblock`、`/checkblock`等指令'
+        text: `使用方法：
+  
+  1. 🈲屏蔽用户：
+     - 回复某个用户的消息，发送 \`/block\`。
+  
+  2. ✅解除屏蔽：
+     - 回复某个已屏蔽用户的消息，发送 \`/unblock\`。
+  
+  3. 🔍检查用户屏蔽状态：
+     - 回复某个用户的消息，发送 \`/checkblock\`。
+  `
       });
     }
+  
+      // 如果管理员发送的是除指定指令以外的消息
+  if (!/^(\/block|\/unblock|\/checkblock|\/help)$/.test(message.text)) {
+    return sendMessage({
+      chat_id: ADMIN_UID,
+      text: '⚠️ 回复转发的消息，向该用户发送消息。'
+    });
+  }
     if (/^\/block$/.exec(message.text)) {
       return handleBlock(message);
     }
@@ -150,12 +169,15 @@ async function onCallbackQuery(callbackQuery) {
   if (callbackQuery.data === 'startCommand') {
     const chatId = callbackQuery.from.id;
 
+    /**
     // 回复用户，触发 /start 命令
     let startMsg = await fetch(startMsgUrl).then(r => r.text());
     let username = callbackQuery.from.username || '';
     let firstName = callbackQuery.from.first_name || '';
     let lastName = callbackQuery.from.last_name || '';
     let userId = callbackQuery.from.id;
+ */
+
 
     // 根据优先级设置欢迎消息
     let displayName = username || (firstName + (lastName ? ` ${lastName}` : '')) || '未知用户';
