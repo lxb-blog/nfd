@@ -3,7 +3,7 @@ const WEBHOOK = '/endpoint';
 const SECRET = ENV_BOT_SECRET; // A-Z, a-z, 0-9, _ and -
 const ADMIN_UID = ENV_ADMIN_UID; // your user id, get it from https://t.me/username_to_id_bot
 
-const WEEK_INTERVAL = 7 * 24 * 3600 * 1000;  // 1 周的毫秒数
+const NOTIFY_INTERVAL = 3600 * 1000;
 const fraudDb = 'https://raw.githubusercontent.com/LloydAsp/nfd/main/data/fraud.db';
 const notificationUrl = 'https://raw.githubusercontent.com/LloydAsp/nfd/main/data/notification.txt';
 const startMsgUrl = 'https://raw.githubusercontent.com/lxb-blog/nfd/refs/heads/main/data/startMessage.md';
@@ -84,13 +84,18 @@ async function onUpdate(update) {
 async function onMessage(message) {
   if (message.text === '/start') {
     let startMsg = await fetch(startMsgUrl).then(r => r.text());
-    // 获取用户的名字、姓氏和用户 ID
-    let firstName = message.from.first_name || '未知用户';
-    let lastName = message.from.last_name ? ` ${message.from.last_name}` : '';
+
+    // 获取用户名、名字、姓氏和用户 ID
+    let username = message.from.username || '';
+    let firstName = message.from.first_name || '';
+    let lastName = message.from.last_name || '';
     let userId = message.from.id;
 
+    // 根据优先级设置欢迎消息
+    let displayName = username || (firstName + (lastName ? ` ${lastName}` : '')) || '未知用户';
+
     // 替换欢迎消息中的动态内容
-    startMsg = startMsg.replace('{{username}}', firstName + lastName);
+    startMsg = startMsg.replace('{{username}}', displayName);
     startMsg = startMsg.replace('{{user_id}}', userId);
 
     // 创建包含按钮的回复
@@ -147,12 +152,16 @@ async function onCallbackQuery(callbackQuery) {
 
     // 回复用户，触发 /start 命令
     let startMsg = await fetch(startMsgUrl).then(r => r.text());
-    let firstName = callbackQuery.from.first_name || '未知用户';
-    let lastName = callbackQuery.from.last_name ? ` ${callbackQuery.from.last_name}` : '';
+    let username = callbackQuery.from.username || '';
+    let firstName = callbackQuery.from.first_name || '';
+    let lastName = callbackQuery.from.last_name || '';
     let userId = callbackQuery.from.id;
 
+    // 根据优先级设置欢迎消息
+    let displayName = username || (firstName + (lastName ? ` ${lastName}` : '')) || '未知用户';
+
     // 替换欢迎消息中的动态内容
-    startMsg = startMsg.replace('{{username}}', firstName + lastName);
+    startMsg = startMsg.replace('{{username}}', displayName);
     startMsg = startMsg.replace('{{user_id}}', userId);
 
     return sendMessage({
@@ -239,31 +248,29 @@ async function handleUnBlock(message) {
 async function checkBlock(message) {
   let guestChantId = await nfd.get('msg-map-' + message.reply_to_message.message_id, { type: "json" });
   let blocked = await nfd.get('isblocked-' + guestChantId, { type: "json" });
-
   return sendMessage({
     chat_id: ADMIN_UID,
     text: `UID:${guestChantId}` + (blocked ? '被屏蔽' : '没有被屏蔽')
   });
 }
 
-// 设置 Webhook
+// 注册 webhook
 async function registerWebhook(event, requestUrl, suffix, secret) {
   const webhookUrl = `${requestUrl.protocol}//${requestUrl.hostname}${suffix}`;
   const r = await (await fetch(apiUrl('setWebhook', { url: webhookUrl, secret_token: secret }))).json();
   return new Response('ok' in r && r.ok ? 'Ok' : JSON.stringify(r, null, 2));
 }
 
-// 取消 Webhook
+// 取消 webhook
 async function unRegisterWebhook(event) {
   const r = await (await fetch(apiUrl('setWebhook', { url: '' }))).json();
   return new Response('ok' in r && r.ok ? 'Ok' : JSON.stringify(r, null, 2));
 }
 
-// 检查是否为骗子
+// 判断是否为诈骗用户
 async function isFraud(id) {
   id = id.toString();
   let db = await fetch(fraudDb).then(r => r.text());
   let arr = db.split('\n').filter(v => v);
-  let flag = arr.filter(v => v === id).length !== 0;
-  return flag;
+  return arr.includes(id);
 }
