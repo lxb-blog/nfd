@@ -1,7 +1,7 @@
-const TOKEN = ENV_BOT_TOKEN // 从 @BotFather 获取
+const TOKEN = ENV_BOT_TOKEN // 从 @BotFather 获取的令牌
 const WEBHOOK = '/endpoint'
 const SECRET = ENV_BOT_SECRET // A-Z, a-z, 0-9, _ 和 -
-const ADMIN_UID = ENV_ADMIN_UID // 你的用户 ID，从 https://t.me/username_to_id_bot 获取
+const ADMIN_UID = ENV_ADMIN_UID // 你的用户 ID，可以从 https://t.me/username_to_id_bot 获取
 
 const NOTIFY_INTERVAL = 7 * 24 * 3600 * 1000;
 const fraudDb = 'https://raw.githubusercontent.com/LloydAsp/nfd/main/data/fraud.db';
@@ -11,7 +11,7 @@ const startMsgUrl = 'https://raw.githubusercontent.com/lxb-blog/nfd/refs/heads/m
 const enable_notification = true
 
 /**
- * 返回 Telegram API 的 URL，且可以选择添加参数
+ * 返回 Telegram API 的 URL，附加参数（如果有）则添加
  */
 function apiUrl (methodName, params = null) {
   let query = ''
@@ -48,8 +48,12 @@ function forwardMessage(msg){
   return requestTelegram('forwardMessage', makeReqBody(msg))
 }
 
+function deleteMessage(msg = {}) {
+  return requestTelegram('deleteMessage', makeReqBody(msg))
+}
+
 /**
- * 监听请求
+ * 等待请求到达 worker
  */
 addEventListener('fetch', event => {
   const url = new URL(event.request.url)
@@ -65,25 +69,25 @@ addEventListener('fetch', event => {
 })
 
 /**
- * 处理 WEBHOOK 请求
+ * 处理对 WEBHOOK 的请求
  * https://core.telegram.org/bots/api#update
  */
 async function handleWebhook (event) {
-  // 检查 secret
+  // 检查密钥
   if (event.request.headers.get('X-Telegram-Bot-Api-Secret-Token') !== SECRET) {
     return new Response('Unauthorized', { status: 403 })
   }
 
   // 同步读取请求体
   const update = await event.request.json()
-  // 异步处理
+  // 异步处理更新
   event.waitUntil(onUpdate(update))
 
   return new Response('Ok')
 }
 
 /**
- * 处理 incoming Update
+ * 处理传入的更新信息
  * https://core.telegram.org/bots/api#update
  */
 async function onUpdate (update) {
@@ -93,188 +97,200 @@ async function onUpdate (update) {
 }
 
 /**
- * 处理 incoming Message
+ * 处理传入的消息
  * https://core.telegram.org/bots/api#message
  */
 async function onMessage (message) {
-  // 如果是 /start，发送欢迎信息
-  if (message.text === '/start') {
-    let startMsg = await fetch(startMsgUrl).then(r => r.text())
+  if(message.text === '/start'){
+    // 获取访客的 ID 和用户名（姓+名）
+    const userId = message.from.id;
+    let username = message.from.first_name && message.from.last_name 
+                ? message.from.first_name + " " + message.from.last_name 
+                : message.from.first_name || "未知用户"; // 如果没有姓或名则默认使用"未知用户"
+    let startMsg = await fetch(startMsgUrl).then(r => r.text());
     
-    // 获取用户名、姓名（first_name 和 last_name 合并）
-    let firstName = message.from.first_name || '';
-    let lastName = message.from.last_name || '';
-    let fullName = firstName + (lastName ? ' ' + lastName : '') || '未知用户';
-    
-    // 获取用户的 id
-    let userId = message.from.id;
+    // 替换 Markdown 模板中的占位符
+    startMsg = startMsg.replace('{{username}}', username).replace('{{user_id}}', userId);
 
-    // 替换模板中的动态内容
-    startMsg = startMsg.replace('{{username}}', fullName).replace('{{user_id}}', userId);
-    
-    // 创建一个按钮
+    // 创建按钮，跳转到李小白博客
     const keyboard = {
       inline_keyboard: [
-        [{
-          text: "李小白博客", 
-          url: "https://blog.lxb.icu"
-        }]
+        [
+          {
+            text: '李小白博客', // 按钮文字
+            url: 'https://blog.lxb.icu' // 跳转的 URL
+          }
+        ]
       ]
     };
 
-    // 发送欢迎消息和按钮
     return sendMessage({
       chat_id: message.chat.id,
       text: startMsg,
-      reply_markup: keyboard // 加入按钮
-    })
+      parse_mode: 'Markdown', // 设置 Markdown 格式
+      reply_markup: keyboard // 设置键盘
+    });
   }
-
-  // 管理员命令处理
-  if (message.chat.id.toString() === ADMIN_UID) {
-    if (!message?.reply_to_message?.chat) {
+  
+  // 处理管理员消息
+  if(message.chat.id.toString() === ADMIN_UID){
+    if(!message?.reply_to_message?.chat){
       return sendMessage({
         chat_id: ADMIN_UID,
-        text: `使用方法：
-  
-  1. 🈲 屏蔽用户：
-     - 回复某个用户的消息，发送 \`/block\`。
-  
-  2. ✅ 解除屏蔽：
-     - 回复某个已屏蔽用户的消息，发送 \`/unblock\`。
-  
-  3. 🔍 检查用户屏蔽状态：
-     - 回复某个用户的消息，发送 \`/checkblock\`。
-  
-  4. 💬 回复消息：
-     - 回复某个用户的消息，发送一条回复消息，机器人会自动转发该消息到管理员界面或其他相关操作。`,
-        parse_mode: 'Markdown' // 设置为 Markdown 格式
+        text: `
+        使用方法：
+
+1. 🈲 屏蔽用户：
+   - 回复某个用户的消息，发送 \`/block\`。
+
+2. ✅ 解除屏蔽：
+   - 回复某个已屏蔽用户的消息，发送 \`/unblock\`。
+
+3. 🔍 检查用户屏蔽状态：
+   - 回复某个用户的消息，发送 \`/checkblock\`。
+
+4. 💬 回复消息：
+   - 回复某个用户的消息，发送一条回复消息，机器人会自动转发该消息到管理员界面或其他相关操作。`,
+              parse_mode: 'Markdown' // 设置为 Markdown 格式
       })
     }
-  
-  
-    if (/^\/block$/.exec(message.text)) {
+    if(/^\/block$/.exec(message.text)){
       return handleBlock(message)
     }
-    if (/^\/unblock$/.exec(message.text)) {
+    if(/^\/unblock$/.exec(message.text)){
       return handleUnBlock(message)
     }
-    if (/^\/checkblock$/.exec(message.text)) {
+    if(/^\/checkblock$/.exec(message.text)){
       return checkBlock(message)
     }
-    let guestChantId = await nfd.get('msg-map-' + message?.reply_to_message.message_id, { type: "json" })
+    let guestChantId = await lBot.get('msg-map-' + message?.reply_to_message.message_id,
+                                      { type: "json" })
     return copyMessage({
       chat_id: guestChantId,
       from_chat_id: message.chat.id,
       message_id: message.message_id,
     })
   }
-
-  return handleGuestMessage(message)
+  
+  return handleGuestMessage(message);
 }
 
 /**
- * 处理游客消息
+ * 处理访客消息
  */
-async function handleGuestMessage(message){
+async function handleGuestMessage(message) {
   let chatId = message.chat.id;
-  let isblocked = await nfd.get('isblocked-' + chatId, { type: "json" })
-  
-  if(isblocked){
+  let isBlocked = await lBot.get('isblocked-' + chatId, { type: "json" });
+
+  if (isBlocked) {
     return sendMessage({
       chat_id: chatId,
-      text: '隔断天涯路，言辞难再通'
-    })
+      text: '隔断天涯路，言辞难再通',
+    });
   }
+
+  const sentMessage = await sendMessage({
+    chat_id: chatId,
+    text: '✅消息已送达，看到后会尽快回复你的',
+  });
+
+  setTimeout(async () => {
+    await deleteMessage({
+      chat_id: chatId,
+      message_id: sentMessage.result.message_id,
+    });
+  }, 960);
 
   let forwardReq = await forwardMessage({
     chat_id: ADMIN_UID,
     from_chat_id: message.chat.id,
-    message_id: message.message_id
-  })
-  console.log(JSON.stringify(forwardReq))
-  if(forwardReq.ok){
-    await nfd.put('msg-map-' + forwardReq.result.message_id, chatId)
-    
-    // 转发成功后给访客回复“✅消息已送达”
-    return sendMessage({
-      chat_id: chatId,
-      text: '✅消息已送达'
-    })
+    message_id: message.message_id,
+  });
+
+  if (forwardReq.ok) {
+    await lBot.put('msg-map-' + forwardReq.result.message_id, chatId);
   }
-  return handleNotify(message)
+
+  return handleNotify(message);
 }
 
 /**
  * 处理通知
  */
 async function handleNotify(message){
+  // 先判断是否是诈骗人员，如果是，则直接提醒
+  // 如果不是，则根据时间间隔提醒：用户id，交易注意点等
   let chatId = message.chat.id;
   if(await isFraud(chatId)){
     return sendMessage({
       chat_id: ADMIN_UID,
-      text: `检测到骗子，UID${chatId}`
+      text:`检测到骗子，UID${chatId}`
     })
   }
   if(enable_notification){
-    let lastMsgTime = await nfd.get('lastmsg-' + chatId, { type: "json" })
+    let lastMsgTime = await lBot.get('lastmsg-' + chatId, { type: "json" })
     if(!lastMsgTime || Date.now() - lastMsgTime > NOTIFY_INTERVAL){
-      await nfd.put('lastmsg-' + chatId, Date.now())
+      await lBot.put('lastmsg-' + chatId, Date.now())
       return sendMessage({
         chat_id: ADMIN_UID,
-        text: await fetch(notificationUrl).then(r => r.text())
+        text:await fetch(notificationUrl).then(r => r.text())
       })
     }
   }
 }
 
 /**
- * 屏蔽用户
+ * 处理拉黑操作
  */
 async function handleBlock(message){
-  let guestChantId = await nfd.get('msg-map-' + message.reply_to_message.message_id, { type: "json" })
+  let guestChantId = await lBot.get('msg-map-' + message.reply_to_message.message_id,
+                                      { type: "json" })
   if(guestChantId === ADMIN_UID){
     return sendMessage({
       chat_id: ADMIN_UID,
-      text: '不能屏蔽自己'
+      text:'不能屏蔽自己'
     })
   }
-  await nfd.put('isblocked-' + guestChantId, true)
+  await lBot.put('isblocked-' + guestChantId, true)
 
   return sendMessage({
     chat_id: ADMIN_UID,
-    text: `UID:${guestChantId} 屏蔽成功`,
+    text: `UID:${guestChantId}屏蔽成功`,
   })
 }
 
 /**
- * 解除屏蔽用户
+ * 处理解除拉黑操作
  */
 async function handleUnBlock(message){
-  let guestChantId = await nfd.get('msg-map-' + message.reply_to_message.message_id, { type: "json" })
-  await nfd.put('isblocked-' + guestChantId, false)
+  let guestChantId = await lBot.get('msg-map-' + message.reply_to_message.message_id,
+  { type: "json" })
+
+  await lBot.put('isblocked-' + guestChantId, false)
 
   return sendMessage({
     chat_id: ADMIN_UID,
-    text: `UID:${guestChantId} 解除屏蔽成功`,
+    text:`UID:${guestChantId}解除屏蔽成功`,
   })
 }
 
 /**
- * 查看是否被屏蔽
+ * 检查是否被拉黑
  */
 async function checkBlock(message){
-  let guestChantId = await nfd.get('msg-map-' + message.reply_to_message.message_id, { type: "json" })
-  let blocked = await nfd.get('isblocked-' + guestChantId, { type: "json" })
+  let guestChantId = await lBot.get('msg-map-' + message.reply_to_message.message_id,
+  { type: "json" })
+  let blocked = await lBot.get('isblocked-' + guestChantId, { type: "json" })
 
   return sendMessage({
     chat_id: ADMIN_UID,
-    text: `UID:${guestChantId}` + (blocked ? ' 被屏蔽' : ' 没有被屏蔽')
+    text: `UID:${guestChantId}` + (blocked ? '被屏蔽' : '没有被屏蔽')
   })
 }
 
 /**
  * 发送纯文本消息
+ * https://core.telegram.org/bots/api#sendmessage
  */
 async function sendPlainText (chatId, text) {
   return sendMessage({
@@ -284,9 +300,11 @@ async function sendPlainText (chatId, text) {
 }
 
 /**
- * 设置 webhook
+ * 设置 webhook 到本 worker 的 URL
+ * https://core.telegram.org/bots/api#setwebhook
  */
 async function registerWebhook (event, requestUrl, suffix, secret) {
+  // https://core.telegram.org/bots/api#setwebhook
   const webhookUrl = `${requestUrl.protocol}//${requestUrl.hostname}${suffix}`
   const r = await (await fetch(apiUrl('setWebhook', { url: webhookUrl, secret_token: secret }))).json()
   return new Response('ok' in r && r.ok ? 'Ok' : JSON.stringify(r, null, 2))
@@ -294,6 +312,7 @@ async function registerWebhook (event, requestUrl, suffix, secret) {
 
 /**
  * 移除 webhook
+ * https://core.telegram.org/bots/api#setwebhook
  */
 async function unRegisterWebhook (event) {
   const r = await (await fetch(apiUrl('setWebhook', { url: '' }))).json()
@@ -301,12 +320,14 @@ async function unRegisterWebhook (event) {
 }
 
 /**
- * 判断是否是诈骗用户
+ * 检查是否为诈骗用户
  */
 async function isFraud(id){
   id = id.toString()
   let db = await fetch(fraudDb).then(r => r.text())
   let arr = db.split('\n').filter(v => v)
+  console.log(JSON.stringify(arr))
   let flag = arr.filter(v => v === id).length !== 0
+  console.log(flag)
   return flag
 }
