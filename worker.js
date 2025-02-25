@@ -5,10 +5,11 @@ const ADMIN_UID = ENV_ADMIN_UID // 你的用户 ID，可以从 https://t.me/user
 
 const NOTIFY_INTERVAL = 7 * 24 * 3600 * 1000;
 const fraudDb = 'https://raw.githubusercontent.com/LloydAsp/nfd/main/data/fraud.db';
-const notificationUrl = 'https://raw.githubusercontent.com/LloydAsp/nfd/main/data/notification.txt'
+const notificationUrl = 'https://raw.githubusercontent.com/lxb-blog/nfd/refs/heads/main/data/notification.txt'
 const startMsgUrl = 'https://raw.githubusercontent.com/lxb-blog/nfd/refs/heads/main/data/startMessage.md';
 
-const enable_notification = true
+const enable_notification = false
+
 
 /**
  * 返回 Telegram API 的 URL，附加参数（如果有）则添加
@@ -102,11 +103,12 @@ async function onUpdate (update) {
  */
 async function onMessage (message) {
   if(message.text === '/start'){
-    // 获取访客的 ID 和用户名（姓+名）
+    // 获取访客的 ID 和用户名（优先获取用户名，如果没有则获取姓名）
     const userId = message.from.id;
-    let username = message.from.first_name && message.from.last_name 
-                ? message.from.first_name + " " + message.from.last_name 
-                : message.from.first_name || "未知用户"; // 如果没有姓或名则默认使用"未知用户"
+    let username = message.from.username || (message.from.first_name && message.from.last_name 
+                ? message.from.last_name + " " + message.from.first_name 
+                : message.from.first_name) || "未知用户"; // 先取用户名，如果没有，再取姓名（姓+名），如果都没有则显示"未知用户"
+    
     let startMsg = await fetch(startMsgUrl).then(r => r.text());
     
     // 替换 Markdown 模板中的占位符
@@ -199,7 +201,7 @@ async function handleGuestMessage(message) {
       chat_id: chatId,
       message_id: sentMessage.result.message_id,
     });
-  }, 960);
+  }, 360);
 
   let forwardReq = await forwardMessage({
     chat_id: ADMIN_UID,
