@@ -17,7 +17,7 @@
    ├─ 解除屏蔽：回复消息 /unblock
    ├─ 检查访客状态：回复消息 /checkblock
    ├─ 查看屏蔽用户列表：回复消息 /blocklist
-   └─ 解除指定id屏蔽：回复消息 /unblockid
+   └─ 解除指定id屏蔽：回复消息 /unblockid [UID]
 
 2️⃣ 欺诈防控体系
    🔍 云端检测：自动识别诈骗风险
