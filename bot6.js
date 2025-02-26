@@ -9,6 +9,9 @@ const notificationUrl = 'https://raw.githubusercontent.com/lxb-blog/nfd/refs/hea
 const startMsgUrl = 'https://raw.githubusercontent.com/lxb-blog/nfd/refs/heads/main/data/startMessage.md'; // 启动消息的 URL
 const userDataTemplateUrl = 'https://raw.githubusercontent.com/lxb-blog/nfd/refs/heads/main/data/userdata.md';//用户信息模板
 const fraudListTemplateUrl = 'https://raw.githubusercontent.com/lxb-blog/nfd/refs/heads/main/data/fraudList.md'//骗子列表模板
+const helpTemplateUrl = 'https://raw.githubusercontent.com/lxb-blog/nfd/refs/heads/main/data/helpMessage.md' // 管理帮助模板
+const statusBgImage = 'https://img.siyouyun.eu.org/file/1740571550415_IMG_2365.png' // 状态背景图
+const helpBgImage = 'https://img.siyouyun.eu.org/file/1740569053174_IMG_2363.png'     // 帮助背景图
 const LOCAL_FRAUD_PREFIX = 'fraud-local-' // 本地欺诈用户存储前缀
 
 const enable_notification = false // 是否启用通知功能
@@ -89,10 +92,8 @@ async function handleWebhook(event) {
   if (event.request.headers.get('X-Telegram-Bot-Api-Secret-Token') !== SECRET) {
     return new Response('Unauthorized', { status: 403 }) // 如果密钥不匹配，返回 403
   }
-
   const update = await event.request.json() // 获取 webhook 请求的内容
   event.waitUntil(onUpdate(update)) // 处理更新消息
-
   return new Response('Ok') // 返回成功响应
 }
 
@@ -119,10 +120,8 @@ async function onMessage(message) {
     let username = message.from.username || (message.from.first_name && message.from.last_name
       ? message.from.last_name + " " + message.from.first_name
       : message.from.first_name) || "未知用户";
-
     let startMsg = await fetch(startMsgUrl).then(r => r.text());
     startMsg = startMsg.replace('{{username}}', username).replace('{{user_id}}', userId);
-
     const keyboard = {
       inline_keyboard: [
         [
@@ -167,34 +166,11 @@ async function onMessage(message) {
       return handleLocalFraudList(message);
     }
     if (message.text === '/help') {
-      return sendMessage({
-        chat_id: ADMIN_UID,
-        text: `
-  🛠️ *管理指令手册* 🛠️
-  
-  1️⃣ 🕵️ _屏蔽用户管理_
-     ▶️ 屏蔽用户 ➖ 回复消息并发送 \`/block\`
-     ▶️ 解除屏蔽 ➕ 回复消息并发送 \`/unblock\`
-     ▶️ 检查状态 🔍 回复消息并发送 \`/checkblock\`
-     ▶️ 屏蔽列表 📋 直接发送 \`/blocklist\`
-     ▶️ ID解除锁 🔓 发送 \`/unblockid ➕ 🆔\`
-  
-  2️⃣ 💬 _消息处理_
-     ▶️ 回复用户消息 ➡️ 直接回复机器人转发的消息
-  
-  3️⃣ 🔍 _用户信息查询_
-     ▶️ 查ID详细信息 🔎 发送 \`/userinfo ➕ 🆔\`
-  
-  4️⃣ 🚨 _欺诈用户管理_
-     ➕ 添加骗子 ➡️ \`/addfraud ➕ 🆔\`
-     ➖ 移除骗子 ➡️ \`/removefraud ➕ 🆔\`
-     📜 骗子列表 ➡️ \`/localfraudlist\`
-
-        `,
-        parse_mode: 'Markdown',
-        disable_web_page_preview: true
-      })
-    }
+  return handleHelpCommand(message); // 修改此处
+}
+if (message.text === '/status') {    // 新增状态命令
+  return handleStatusCommand(message);
+}
     if (/^\/block$/.exec(message.text)) {
       return handleBlock(message);
     }
@@ -219,7 +195,76 @@ async function onMessage(message) {
   // 处理普通用户消息
   return handleGuestMessage(message);
 }
+async function handleHelpCommand(message) {
+  try {
+    const [template, blockedCount, fraudCount] = await Promise.all([
+      fetch(helpTemplateUrl).then(r => r.text()),
+      getLocalBlockedCount(),
+      getLocalFraudCount()
+    ]);
 
+    const finalText = template
+      .replace('{{botName}}', '李小白')
+      .replace('{{blockedCount}}', blockedCount)
+      .replace('{{fraudCount}}', fraudCount)
+      .replace('{{updateTime}}', formatAdminTime());
+    return sendPhoto({
+      chat_id: ADMIN_UID,
+      photo: helpBgImage,
+      caption: finalText,
+      parse_mode: 'Markdown',
+      disable_web_page_preview: true
+    });
+  } catch (error) {
+    return sendMessage({
+      chat_id: ADMIN_UID,
+      text: `⚠️ 帮助菜单加载失败：${error.message}`
+    });
+  }
+}
+
+async function handleStatusCommand(message) {
+  try {
+    const [blockedCount, fraudCount] = await Promise.all([
+      getLocalBlockedCount(),
+      getLocalFraudCount()
+    ]);
+    const statusText = `🤖 *机器人状态监控*\n\n🛡️ 本地屏蔽访客：${blockedCount} 人\n🚨 欺诈访客记录：${fraudCount} 人\n🔄 最后更新：${formatAdminTime()}`;
+    return sendPhoto({
+      chat_id: ADMIN_UID,
+      photo: statusBgImage,
+      caption: statusText,
+      parse_mode: 'Markdown'
+    });
+  } catch (error) {
+    return sendMessage({
+      chat_id: ADMIN_UID,
+      text: `⚠️ 状态获取失败：${error.message}`
+    });
+  }
+}
+
+async function getLocalBlockedCount() {
+  let count = 0;
+  let cursor = null;
+  do {
+    const list = await lBot.list({ prefix: 'isblocked-', cursor });
+    count += list.keys.length;
+    cursor = list.list_complete ? null : list.cursor;
+  } while (cursor);
+  return count;
+}
+
+async function getLocalFraudCount() {
+  let count = 0;
+  let cursor = null;
+  do {
+    const list = await lBot.list({ prefix: LOCAL_FRAUD_PREFIX, cursor });
+    count += list.keys.length;
+    cursor = list.list_complete ? null : list.cursor;
+  } while (cursor);
+  return count;
+}
 // 格式化管理时间
 function formatAdminTime(date = new Date()) {
   return date.toLocaleString('zh-CN', {
@@ -266,7 +311,7 @@ async function handleLocalFraudList(message) {
     // [3] 填充模板
     const finalText = template
       .replace('{{count}}', fraudList.length)
-      .replace('{{users}}', fraudList.length ? usersSection : '当前无欺诈用户记录')
+      .replace('{{users}}', fraudList.length ? usersSection : '当前无欺诈访客记录')
       .replace('{{updateTime}}', formatAdminTime());
 
     // [4] 发送图片消息
@@ -287,7 +332,7 @@ async function handleLocalFraudList(message) {
     });
   }
 }
-// 新增数据加载辅助函数
+// 数据加载辅助函数
 async function loadFraudDataFromStorage() {
   const users = [];
   let cursor = null;
@@ -312,7 +357,7 @@ async function handleAddFraudUser(message, userId) {
     if (!userCheck.ok) {
       return sendMessage({
         chat_id: ADMIN_UID,
-        text: `❌ 用户不存在：${userCheck.description}`
+        text: `❌ 访客不存在：${userCheck.description}`
       })
     }
 
@@ -320,7 +365,7 @@ async function handleAddFraudUser(message, userId) {
     if (existing) {
       return sendMessage({
         chat_id: ADMIN_UID,
-        text: `⚠️ 用户 ${userId} 已在本地欺诈列表中`
+        text: `⚠️ 访客 ${userId} 已在本地欺诈列表中`
       })
     }
 
@@ -336,7 +381,7 @@ async function handleAddFraudUser(message, userId) {
 
     return sendMessage({
       chat_id: ADMIN_UID,
-      text: `✅ 已添加用户 \`${userId}\` 到本地欺诈列表`,
+      text: `✅ 已添加访客 \`${userId}\` 到本地欺诈列表`,
       parse_mode: 'Markdown'
     })
   } catch (error) {
@@ -354,14 +399,14 @@ async function handleRemoveFraudUser(message, userId) {
     if (!existing) {
       return sendMessage({
         chat_id: ADMIN_UID,
-        text: `⚠️ 用户 ${userId} 不在本地欺诈列表中`
+        text: `⚠️ 访客 ${userId} 不在本地欺诈列表中`
       })
     }
 
     await lBot.delete(LOCAL_FRAUD_PREFIX + userId)
     return sendMessage({
       chat_id: ADMIN_UID,
-      text: `✅ 已从本地欺诈列表移除用户 \`${userId}\``,
+      text: `✅ 已从本地欺诈列表移除该访客 \`${userId}\``,
       parse_mode: 'Markdown'
     })
   } catch (error) {
@@ -469,7 +514,7 @@ async function handleNotify(message) {
     }
 
     // 构造报告文本
-    const reportText = `📛 欺诈用户消息报警\n\n` +
+    const reportText = `📛 欺诈访客消息报警\n\n` +
       `用户ID：\`${chatId}\`\n` +
       `用户名：@${message.from.username || '无'}\n` +
       `姓名：${fullName}\n` +
@@ -606,7 +651,7 @@ async function handleUnBlockById(message, userId) {
 
     return sendMessage({
       chat_id: ADMIN_UID,
-      text: `✅ 已解除屏蔽用户：${userId}`,
+      text: `✅ 已解除屏蔽该访客：${userId}`,
       parse_mode: 'Markdown'
     });
 
@@ -663,8 +708,8 @@ async function handleBlockList(message) {
 
   return sendPhoto({
     chat_id: ADMIN_UID,
-    photo: 'https://img.siyouyun.eu.org/file/1740557604080_p0 2.png',//查看屏蔽列表的图片
-    caption: `📜 当前已屏蔽用户数：${blockedUsers.length}\n\n${formattedList}`,
+    photo: 'https://img.siyouyun.eu.org/file/1740568575434_IMG_2364.png',//查看屏蔽列表的图片
+    caption: `📜 当前已屏蔽访客数：${blockedUsers.length}\n\n${formattedList}`,
     parse_mode: 'Markdown'
   })
 }
