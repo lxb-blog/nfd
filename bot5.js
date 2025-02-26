@@ -7,8 +7,8 @@ const NOTIFY_INTERVAL = 7 * 24 * 3600 * 1000; // 通知间隔时间，7天
 const fraudDb = 'https://raw.githubusercontent.com/LloydAsp/nfd/main/data/fraud.db'; // 欺诈用户数据库的 URL
 const notificationUrl = 'https://raw.githubusercontent.com/lxb-blog/nfd/refs/heads/main/data/notification.txt'; // 通知内容 URL
 const startMsgUrl = 'https://raw.githubusercontent.com/lxb-blog/nfd/refs/heads/main/data/startMessage.md'; // 启动消息的 URL
-const userDataTemplateUrl = 'https://raw.githubusercontent.com/lxb-blog/nfd/refs/heads/main/data/userdata.md';
-const fraudListTemplateUrl = 'https://raw.githubusercontent.com/lxb-blog/nfd/refs/heads/main/data/fraudList.md'
+const userDataTemplateUrl = 'https://raw.githubusercontent.com/lxb-blog/nfd/refs/heads/main/data/userdata.md';//用户信息模板
+const fraudListTemplateUrl = 'https://raw.githubusercontent.com/lxb-blog/nfd/refs/heads/main/data/fraudList.md'//骗子列表模板
 const LOCAL_FRAUD_PREFIX = 'fraud-local-' // 本地欺诈用户存储前缀
 
 const enable_notification = false // 是否启用通知功能
@@ -267,7 +267,7 @@ async function handleLocalFraudList(message) {
     // [4] 发送图片消息
     return sendPhoto({
       chat_id: ADMIN_UID,
-      photo: 'https://img.siyouyun.eu.org/file/1740548062053_p0.png', // 同用户信息图片
+      photo: 'https://img.siyouyun.eu.org/file/1740548062053_p0.png', // 骗子哪里的图片
       caption: finalText,
       parse_mode: 'Markdown',
       disable_web_page_preview: true
@@ -662,7 +662,7 @@ async function handleBlockList(message) {
 
   return sendPhoto({
     chat_id: ADMIN_UID,
-    photo: 'https://img.siyouyun.eu.org/file/1740557604080_p0 2.png',
+    photo: 'https://img.siyouyun.eu.org/file/1740557604080_p0 2.png',//查看屏蔽列表的图片
     caption: `📜 当前已屏蔽用户数：${blockedUsers.length}\n\n${formattedList}`,
     parse_mode: 'Markdown'
   })
