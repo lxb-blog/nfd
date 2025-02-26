@@ -2,7 +2,6 @@ const TOKEN = ENV_BOT_TOKEN // 从 @BotFather 获取的令牌
 const WEBHOOK = '/endpoint' // 设置 Webhook 的路径
 const SECRET = ENV_BOT_SECRET // Webhook 的密钥，A-Z, a-z, 0-9, _ 和 -
 const ADMIN_UID = ENV_ADMIN_UID // 管理员的用户 ID，可以从 https://t.me/username_to_id_bot 获取
-
 const NOTIFY_INTERVAL = 7 * 24 * 3600 * 1000; // 通知间隔时间，7天
 const fraudDb = 'https://raw.githubusercontent.com/LloydAsp/nfd/main/data/fraud.db'; // 欺诈用户数据库的 URL
 const notificationUrl = 'https://raw.githubusercontent.com/lxb-blog/nfd/refs/heads/main/data/notification.txt'; // 通知内容 URL
@@ -11,9 +10,8 @@ const userDataTemplateUrl = 'https://raw.githubusercontent.com/lxb-blog/nfd/refs
 const fraudListTemplateUrl = 'https://raw.githubusercontent.com/lxb-blog/nfd/refs/heads/main/data/fraudList.md'//骗子列表模板
 const helpTemplateUrl = 'https://raw.githubusercontent.com/lxb-blog/nfd/refs/heads/main/data/helpMessage.md' // 管理帮助模板
 const statusBgImage = 'https://img.siyouyun.eu.org/file/1740571550415_IMG_2365.png' // 状态背景图
-const helpBgImage = 'https://img.siyouyun.eu.org/file/1740569053174_IMG_2363.png'     // 帮助背景图
+const helpBgImage = 'https://img.siyouyun.eu.org/file/1740569053174_IMG_2363.png' // 帮助背景图
 const LOCAL_FRAUD_PREFIX = 'fraud-local-' // 本地欺诈用户存储前缀
-
 const enable_notification = false // 是否启用通知功能
 
 // 构建 API 请求 URL
