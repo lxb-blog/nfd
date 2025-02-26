@@ -106,16 +106,12 @@ async function onUpdate(update) {
 // 处理收到的消息
 async function onMessage(message) {
   if (message.text && message.text.startsWith('/') && message.text !== '/start') {
-    // 非管理员用户
     if (message.chat.id.toString() !== ADMIN_UID) {
-      // 发送临时提示
-      const reply = await sendMessage({
+      const sentMessage = await sendMessage({
         chat_id: message.chat.id,
-        text: '⚠️ 该指令仅主人可用',
-        reply_to_message_id: message.message_id
-      })
-
-      return // 终止后续处理
+        text: '⚠️ 该指令仅主人可用' 
+      });
+      return; // 终止后续处理
     }
   }
   if (message.text === '/start') {
@@ -148,7 +144,6 @@ async function onMessage(message) {
 
   // 管理员命令处理
   if (message.chat.id.toString() === ADMIN_UID) {
-    // 原有命令
     if (/^\/blocklist$/.test(message.text)) {
       return handleBlockList(message);
     }
@@ -160,8 +155,6 @@ async function onMessage(message) {
       const userId = message.text.split(' ')[1];
       return handleUnBlockById(message, userId);
     }
-    
-    // 新增欺诈管理命令
     if (/^\/addfraud\s+\d+$/.test(message.text)) {
       const userId = message.text.split(' ')[1];
       return handleAddFraudUser(message, userId);
@@ -214,7 +207,6 @@ async function onMessage(message) {
     if (/^\/blocklist$/.test(message.text)) {
       return handleBlockList(message);
     }
-    
     let guestChantId = await lBot.get('msg-map-' + message?.reply_to_message.message_id,
       { type: "json" })
     return copyMessage({
