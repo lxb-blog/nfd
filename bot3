@@ -248,7 +248,10 @@ async function handleLocalFraudList(message) {
         fraudList.push({
           id: key.name.replace(LOCAL_FRAUD_PREFIX, ''),
           operator: record.operator,
-          timestamp: record.timestamp
+          timestamp: record.timestamp,
+          username: record.username,
+          firstName: record.firstName,
+          lastName: record.lastName
         })
       }
     }
@@ -258,7 +261,16 @@ async function handleLocalFraudList(message) {
   let mdText = `📜 本地欺诈用户 (共 ${fraudList.length} 个)\n\n`
   if (fraudList.length > 0) {
     fraudList.forEach((user, index) => {
-      mdText += `${index + 1}. ID：\`${user.id}\`\n`
+      // 构建用户名显示
+      const usernameDisplay = user.username ? `@${user.username}` : '无';
+      
+      // 构建姓名显示
+      const nameParts = [];
+      if (user.firstName) nameParts.push(user.firstName);
+      if (user.lastName) nameParts.push(user.lastName);
+      const fullName = nameParts.length > 0 ? nameParts.join(' ') : '无';
+
+      mdText += `${index + 1}. ID：\`${user.id}\` - ${usernameDisplay} - ${fullName}\n`
       mdText += `   👤 操作者：\`${user.operator}\`\n`
       mdText += `   🕒 时间：\`${formatAdminTime(new Date(user.timestamp))}\`\n\n`
     })
@@ -292,9 +304,14 @@ async function handleAddFraudUser(message, userId) {
       })
     }
 
+    // 获取用户详细信息
+    const targetUser = userCheck.result;
     await lBot.put(LOCAL_FRAUD_PREFIX + userId, JSON.stringify({
       operator: message.from.id,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      username: targetUser.username || null,
+      firstName: targetUser.first_name || null,
+      lastName: targetUser.last_name || null
     }))
 
     return sendMessage({
