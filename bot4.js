@@ -1,4 +1,3 @@
-
 const TOKEN = ENV_BOT_TOKEN // 从 @BotFather 获取的令牌
 const WEBHOOK = '/endpoint' // 设置 Webhook 的路径
 const SECRET = ENV_BOT_SECRET // Webhook 的密钥，A-Z, a-z, 0-9, _ 和 -
@@ -8,8 +7,8 @@ const NOTIFY_INTERVAL = 7 * 24 * 3600 * 1000; // 通知间隔时间，7天
 const fraudDb = 'https://raw.githubusercontent.com/LloydAsp/nfd/main/data/fraud.db'; // 欺诈用户数据库的 URL
 const notificationUrl = 'https://raw.githubusercontent.com/lxb-blog/nfd/refs/heads/main/data/notification.txt'; // 通知内容 URL
 const startMsgUrl = 'https://raw.githubusercontent.com/lxb-blog/nfd/refs/heads/main/data/startMessage.md'; // 启动消息的 URL
-const userDataTemplateUrl = 'https://raw.githubusercontent.com/lxb-blog/nfd/refs/heads/main/data/userdata.md';
-const fraudListTemplateUrl = 'https://raw.githubusercontent.com/lxb-blog/nfd/refs/heads/main/data/fraudList.md'
+const userDataTemplateUrl = 'https://raw.githubusercontent.com/lxb-blog/nfd/refs/heads/main/data/userdata.md';// 查询用户信息的 URL
+const fraudListTemplateUrl = 'https://raw.githubusercontent.com/lxb-blog/nfd/refs/heads/main/data/fraudList.md'// 查询本地骗子的 URL
 const LOCAL_FRAUD_PREFIX = 'fraud-local-' // 本地欺诈用户存储前缀
 
 const enable_notification = false // 是否启用通知功能
@@ -244,39 +243,45 @@ async function checkFraud(id) {
 
 // 处理本地欺诈用户列表
 async function handleLocalFraudList(message) {
-  // [1] 获取模板和用户数据
-  const [template, fraudList] = await Promise.all([
-    fetch(fraudListTemplateUrl).then(r => r.text()),
-    loadFraudDataFromStorage()
-  ]);
+  try {
+    // [1] 获取模板和数据
+    const [template, fraudList] = await Promise.all([
+      fetch(fraudListTemplateUrl).then(r => r.text()),
+      loadFraudDataFromStorage()
+    ]);
 
-  // [2] 生成用户信息列表
-  const usersSection = fraudList.map((user, index) => {
-    const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ') || '未命名';
-    return `┣✦ **用户 ${index + 1}**\n` +
-           `┃・🆔 ID：\`${user.id}\`\n` +
-           `┃・📧 用户名：${user.username ? '@' + user.username : '无'}\n` +
-           `┃・👤 姓名：${fullName}\n` +
-           `┃・🛠️ 操作人：\`${user.operator}\`\n` +
-           `┃・⏳ 时间：\`${formatAdminTime(new Date(user.timestamp))}\`\n` +
-           `┗━━━━━━━━━━━━━━`;
-  }).join('\n\n');
+    // [2] 生成用户列表
+    const usersSection = fraudList.map((user, index) => 
+      `▫️ 用户 ${index + 1}\n` +
+      `├─🆔 ID：\`${user.id}\`\n` +
+      `├─📛 名称：${user.firstName || '无'} ${user.lastName || ''}\n` +
+      `└─🕵️ 操作人：${user.operator}`
+    ).join('\n\n');
 
-  // [3] 组合完整消息
-  const finalText = template
-    .replace('{{count}}', fraudList.length)
-    .replace('{{users}}', fraudList.length ? usersSection : '当前无欺诈用户记录')
-    .replace('{{updateTime}}', formatAdminTime());
+    // [3] 填充模板
+    const finalText = template
+      .replace('{{count}}', fraudList.length)
+      .replace('{{users}}', fraudList.length ? usersSection : '当前无欺诈用户记录')
+      .replace('{{updateTime}}', formatAdminTime());
 
-  // [4] 发送消息
-  return sendMessage({
-    chat_id: ADMIN_UID,
-    text: finalText,
-    parse_mode: 'Markdown',
-    disable_web_page_preview: true
-  });
+    // [4] 发送图片消息
+    return sendPhoto({
+      chat_id: ADMIN_UID,
+      photo: 'https://img.siyouyun.eu.org/file/1740548062053_p0.png', // 同用户信息图片
+      caption: finalText,
+      parse_mode: 'Markdown',
+      disable_web_page_preview: true
+    });
+
+  } catch (error) {
+    // 降级为文本消息
+    return sendMessage({
+      chat_id: ADMIN_UID,
+      text: `⚠️ 图片加载失败，以下是文本格式：\n\n${finalText}`,
+      parse_mode: 'Markdown'
+    });
+  }
 }
-
 // 新增数据加载辅助函数
 async function loadFraudDataFromStorage() {
   const users = [];
