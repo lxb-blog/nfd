@@ -2,7 +2,7 @@
 {{botName}} 管理手册 • 控制台指南
 
 📊 当前系统状态
-├─ 屏蔽用户：{{blockedCount}} 人
+├─ 屏蔽访客：{{blockedCount}} 人
 └─ 本地骗子：{{fraudCount}} 人
 
 🔧 核心功能体系
