@@ -23,8 +23,8 @@
    🔍 云端检测：自动识别诈骗风险
    ├─ 本地欺诈库管理
    ├─ 查看名单：/localfraudlist
-   ├─ 添加记录：/addfraud [UID]
-   └─ 移除记录：/removefraud [UID]
+   ├─ 添加记录：/addfraud [UID]/回复
+   └─ 移除记录：/removefraud [UID]/回复
 
 3️⃣ 消息中枢功能
    📩 消息转发：自动同步用户消息
