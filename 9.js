@@ -264,13 +264,26 @@ async function onMessage(message) {
     if (/^\/blocklist$/.test(message.text)) {
       return handleBlockList(message);
     }
-    if (/^\/fraud(_add)?(?:\s+(\d+))?$/.exec(message.text)) {
+    if (/^\/fraud(?:\s+\d+)?$/.test(message.text)) {
+      if (message.reply_to_message) { 
+        return handleFraudByReply(message);
+      }
       const userId = message.text.split(' ')[1];
-      return handleFraudCommand(message, userId);
+      if (userId) {
+        return handleFraudByUserId(message, userId);
+      }
+      return;
     }
-    if (/^\/unfraud(_remove)?(?:\s+(\d+))?$/.exec(message.text)) {
+    
+    if (/^\/unfraud(?:\s+\d+)?$/.test(message.text)) {
+      if (message.reply_to_message) { 
+        return handleUnfraudByReply(message);
+      }
       const userId = message.text.split(' ')[1];
-      return handleUnfraudCommand(message, userId);
+      if (userId) {
+        return handleUnfraudByUserId(message, userId);
+      }
+      return;
     }
     if (/^\/userinfo\s+\d+$/.test(message.text)) {
       const userId = message.text.split(' ')[1];
@@ -431,7 +444,7 @@ async function handleLocalFraudList(message) {
         callback_data: `view_profile:${user.target.id}`
       };
       const removeFraudButton = {
-        text: `✅用户 ${user.target.id}`,
+        text: `✅解除 ${user.target.id}`,
         callback_data: `confirm_remove_fraud:${user.target.id}`
       };
       keyboard.push([
@@ -489,8 +502,9 @@ async function handleFraudByReply(message) {
   const confirmKeyboard = {
     inline_keyboard: [
       [
-        { text: "✅ 确认添加", callback_data: `confirm_add_fraud:${guestChatId}`},
-        { text: "👤 查看资料", callback_data: `view_profile:${guestChatId}`}
+        { text: "✅ 添加", callback_data: `confirm_add_fraud:${guestChatId}`},
+        { text: "👤 资料", callback_data: `view_profile:${guestChatId}`},
+        { text: "❌ 取消", callback_data: `cancel_add_fraud:${guestChatId}`}
       ]
     ]
   };
@@ -538,8 +552,9 @@ async function handleFraudByUserId(message, userId) {
     const confirmKeyboard = {
       inline_keyboard: [
         [
-          { text: "✅ 确认添加", callback_data: `confirm_add_fraud:${userId}`},
-          { text: "👤 查看资料", callback_data: `view_profile:${userId}`}
+          { text: "✅ 添加", callback_data: `confirm_add_fraud:${userId}`},
+          { text: "👤 资料", callback_data: `view_profile:${userId}`},
+          { text: "❌ 取消", callback_data: `cancel_add_fraud:${userId}`}
         ]
       ]
     };
@@ -729,8 +744,9 @@ async function handleBlock(message) {
   const confirmKeyboard = {
     inline_keyboard: [
       [
-        { text: "✅ 确认屏蔽", callback_data: `confirm_block:${guestChatId}` },
-        { text: "👤 查看资料", callback_data: `view_profile:${guestChatId}` }
+        { text: "✅ 确认", callback_data: `confirm_block:${guestChatId}` },
+        { text: "👤 资料", callback_data: `view_profile:${guestChatId}` },
+        { text: "❌ 取消", callback_data: `cancel_block:${guestChatId}` }
       ]
     ]
   };
